@@ -1,0 +1,201 @@
+services:
+  # -------------------------------------------------------------
+  # Infrastructure Services
+  # -------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: payflow-postgres
+    environment:
+      POSTGRES_DB: payflow_db
+      POSTGRES_USER: payflow_user
+      POSTGRES_PASSWORD: payflow_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payflow_user -d payflow_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - payflow-network
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: payflow-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - payflow-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: payflow-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - payflow-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: payflow-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "29092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - payflow-network
+
+  # -------------------------------------------------------------
+  # PayFlow Microservices
+  # -------------------------------------------------------------
+  provider-simulator:
+    build:
+      context: ./provider-simulator
+      dockerfile: Dockerfile
+    container_name: payflow-provider-simulator
+    ports:
+      - "8081:8081"
+    environment:
+      WEBHOOK_SERVICE_URL: http://webhook-service:8082/api/v1/webhooks
+      WEBHOOK_SECRET: whsec_test_secret_key_1234567890
+      ASYNC_WEBHOOKS_ENABLED: "true"
+      WEBHOOK_DELAY_MS: 200
+    networks:
+      - payflow-network
+
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: payflow-payment-service
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: payflow_db
+      DB_USER: payflow_user
+      DB_PASSWORD: payflow_pass
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SIMULATOR_BASE_URL: http://provider-simulator:8081/api/simulator
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      provider-simulator:
+        condition: service_started
+    networks:
+      - payflow-network
+
+  webhook-service:
+    build:
+      context: ./webhook-service
+      dockerfile: Dockerfile
+    container_name: payflow-webhook-service
+    ports:
+      - "8082:8082"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: payflow_db
+      DB_USER: payflow_user
+      DB_PASSWORD: payflow_pass
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      WEBHOOK_SECRET: whsec_test_secret_key_1234567890
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      payment-service:
+        condition: service_started
+    networks:
+      - payflow-network
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: payflow-notification-service
+    ports:
+      - "8083:8083"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    depends_on:
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    networks:
+      - payflow-network
+
+  # -------------------------------------------------------------
+  # Observability (Prometheus & Grafana)
+  # -------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: payflow-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - payflow-network
+
+  grafana:
+    image: grafana/grafana:10.4.1
+    container_name: payflow-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - payflow-network
+
+networks:
+  payflow-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

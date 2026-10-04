@@ -19,6 +19,7 @@ import java.time.Instant;
 public class WebhookPayload {
 
     private ProviderType provider;
+    @com.fasterxml.jackson.annotation.JsonAlias({"eventId", "provider_event_id", "id"})
     private String providerEventId;
     private String eventType;
     private String providerTransactionId;

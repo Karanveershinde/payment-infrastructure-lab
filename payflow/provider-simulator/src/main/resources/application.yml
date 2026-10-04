@@ -1,0 +1,28 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: provider-simulator
+
+simulator:
+  webhook-service-url: ${WEBHOOK_SERVICE_URL:http://localhost:8082/api/v1/webhooks}
+  webhook-secret: ${WEBHOOK_SECRET:whsec_test_secret_key_1234567890}
+  async-webhooks-enabled: ${ASYNC_WEBHOOKS_ENABLED:true}
+  webhook-delay-ms: ${WEBHOOK_DELAY_MS:200}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

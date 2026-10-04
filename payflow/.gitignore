@@ -1,0 +1,27 @@
+# Target and compiled classes
+target/
+*.class
+
+# Logs
+*.log
+logs/
+
+# Package files
+*.jar
+*.war
+
+# Environment and secrets
+.env
+*.local
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+Thumbs.db

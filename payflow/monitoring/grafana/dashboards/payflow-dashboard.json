@@ -1,0 +1,184 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Payment Overview & Throughput",
+      "type": "row"
+    },
+    {
+      "id": 1,
+      "title": "Payment Request Throughput (req/sec)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "expr": "sum(rate(payment_requests_total[1m]))",
+          "legendFormat": "Total TPS"
+        },
+        {
+          "expr": "sum(rate(payment_success_total[1m]))",
+          "legendFormat": "Success TPS"
+        },
+        {
+          "expr": "sum(rate(payment_failure_total[1m]))",
+          "legendFormat": "Failure TPS"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "End-to-End Payment Latency (p50, p95, p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 1 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(payment_latency_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p50 (ms)"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(payment_latency_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p95 (ms)"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(payment_latency_seconds_bucket[1m])) by (le)) * 1000",
+          "legendFormat": "p99 (ms)"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Transaction Success Rate (%)",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 1 },
+      "targets": [
+        {
+          "expr": "sum(rate(payment_success_total[5m])) / (sum(rate(payment_requests_total[5m])) + 0.0001) * 100",
+          "legendFormat": "Success Rate %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 85 },
+              { "color": "green", "value": 95 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "id": 101,
+      "title": "Provider Orchestration & Resiliency",
+      "type": "row"
+    },
+    {
+      "id": 4,
+      "title": "Provider Outbound Latency (p95 ms by Provider)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 10 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(provider_latency_seconds_bucket[1m])) by (le, provider)) * 1000",
+          "legendFormat": "{{provider}} p95 (ms)"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Provider Retries & Failures",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 10 },
+      "targets": [
+        {
+          "expr": "sum(rate(provider_failures_total[1m])) by (provider)",
+          "legendFormat": "Failures: {{provider}}"
+        },
+        {
+          "expr": "sum(rate(retry_total[1m])) by (provider)",
+          "legendFormat": "Retries: {{provider}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Circuit Breaker State Transitions",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 10 },
+      "targets": [
+        {
+          "expr": "sum(circuit_breaker_open_total) by (provider)",
+          "legendFormat": "Circuit Open: {{provider}}"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
+      "id": 102,
+      "title": "Idempotency, Security & Rate Limiting",
+      "type": "row"
+    },
+    {
+      "id": 7,
+      "title": "Idempotency Conflicts & Replays",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 19 },
+      "targets": [
+        {
+          "expr": "sum(rate(idempotency_conflict_total[1m]))",
+          "legendFormat": "Idempotency 409 Conflicts"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Rate Limit 429 Rejections",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 19 },
+      "targets": [
+        {
+          "expr": "sum(rate(rate_limit_rejected_total[1m]))",
+          "legendFormat": "Rate Limit 429 Rejections"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Webhook Deduplications",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 19 },
+      "targets": [
+        {
+          "expr": "sum(rate(webhook_duplicate_total[1m]))",
+          "legendFormat": "Deduplicated Webhooks"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["payflow", "payments", "resilience"],
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": { "refresh_intervals": ["5s", "10s", "30s", "1m"] },
+  "timezone": "browser",
+  "title": "PayFlow — Transaction Gateway & Fault Tolerance",
+  "uid": "payflow-core-dashboard",
+  "version": 1
+}
