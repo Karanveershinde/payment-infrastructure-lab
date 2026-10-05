@@ -1,18 +1,41 @@
-# PayFlow — Fault-Tolerant Payment Orchestration & Transaction Gateway
+# Payment Infrastructure Lab
 
-> Production-grade portfolio project located in [`/payflow`](./payflow).
+A production-grade distributed payment systems portfolio containing two complementary enterprise platforms:
 
-See the complete, in-depth architectural and engineering documentation in [`payflow/README.md`](./payflow/README.md).
+---
 
-### Quick Navigation
-- **[Architecture & Service Boundaries](./payflow/README.md#2-core-architecture--service-boundaries)**
-- **[Payment State Machine](./payflow/README.md#3-payment-state-machine)**
-- **[Two-Tier Distributed Idempotency](./payflow/README.md#4-two-tier-distributed-idempotency-engine)**
-- **[Provider Routing & Resilience](./payflow/README.md#5-provider-routing--resilience-engineering)**
-- **[Asynchronous Webhook Processing](./payflow/README.md#6-asynchronous-webhook-ingestion--deduplication)**
-- **[Event-Driven Kafka Topology](./payflow/README.md#7-event-driven-design--kafka-topology)**
-- **[Database Schema & Optimistic Locking](./payflow/README.md#8-database-schema--data-consistency)**
-- **[Empirical Benchmark & Load Testing Results](./payflow/README.md#11-empirical-benchmark--load-testing-results)**
-- **[Top 10 Technical Interview Discussion Points](./payflow/README.md#16-top-10-technical-interview-discussion-points)**
-- **[Suggested Resume Bullets](./payflow/README.md#17-suggested-resume-bullets)**
-- **[Quickstart Guide](./payflow/README.md#18-quickstart--local-execution)**
+### Project 1: [PayFlow — Fault-Tolerant Payment Orchestration & Transaction Gateway](./payflow/README.md)
+*Focus: Transaction reliability, dynamic smart routing, dual-tier Redis/PostgreSQL distributed idempotency, resilience engineering (Circuit Breakers & Retries), and asynchronous webhook deduplication.*
+
+- **[Full Documentation & Architecture](./payflow/README.md)**
+- **Tech Stack:** Java 21, Spring Boot 3.3.4, PostgreSQL, Redis, Kafka, Resilience4j, Micrometer, Prometheus, Grafana.
+- **Empirical Benchmark:** 200 requests at 20 concurrent workers; 44–58 TPS across three live runs, with 99.5%–100% success, 0 double charges.
+
+---
+
+### Project 2: [LedgerX — Event-Driven Payment Reconciliation & Risk Engine](./ledgerx/README.md)
+*Focus: Post-processing financial correctness, immutable double-entry bookkeeping ($\sum \text{Debits} == \sum \text{Credits}$), multi-category provider settlement reconciliation (8 discrepancy states), deterministic rule-based risk scoring, DLQ handling, and safe idempotent event replay.*
+
+- **[Full Documentation & Architecture](./ledgerx/README.md)**
+- **Tech Stack:** Java 21, Spring Boot 3.3.4, PostgreSQL, Redis, Apache Kafka, Micrometer, Prometheus, Grafana.
+- **Empirical Benchmark:** 500 transactions, 100% invariant compliance (0 balanced ledger violations), 26.51 TPS ingestion, 259+ records/sec batch reconciliation throughput.
+
+---
+
+### Quick Directory Structure
+```
+payment-infrastructure-lab/
+├── payflow/                       # Payment Orchestrator & Gateway
+│   ├── src/
+│   ├── docker-compose.yml
+│   └── README.md
+└── ledgerx/                       # Reconciliation & Ledger Engine
+    ├── ledgerx-common/
+    ├── ledgerx-ledger-service/
+    ├── ledgerx-risk-engine/
+    ├── ledgerx-reconciliation-service/
+    ├── ledgerx-app/
+    ├── docker-compose.yml
+    └── README.md
+```
+

@@ -47,7 +47,26 @@ public final class HmacSignatureUtil {
         String expectedSignature = calculateSignature(secret, payload);
         byte[] expectedBytes = expectedSignature.getBytes(StandardCharsets.UTF_8);
         byte[] actualBytes = signature.getBytes(StandardCharsets.UTF_8);
-
         return MessageDigest.isEqual(expectedBytes, actualBytes);
+    }
+
+    /**
+     * Calculates HMAC-SHA256 hex signature of timestamp + "." + payload using secret.
+     */
+    public static String calculateSignature(String secret, String timestamp, String payload) {
+        if (secret == null || timestamp == null || payload == null) {
+            throw new IllegalArgumentException("Secret, timestamp, and payload must not be null");
+        }
+        return calculateSignature(secret, timestamp + "." + payload);
+    }
+
+    /**
+     * Verifies that the given signature matches HMAC-SHA256 of timestamp + "." + payload.
+     */
+    public static boolean verifySignature(String secret, String timestamp, String payload, String signature) {
+        if (secret == null || timestamp == null || payload == null || signature == null) {
+            return false;
+        }
+        return verifySignature(secret, timestamp + "." + payload, signature);
     }
 }

@@ -65,7 +65,7 @@ class WebhookProcessorServiceTest {
     }
 
     @Test
-    @DisplayName("Should successfully process valid HMAC signed webhook")
+    @DisplayName("Should successfully process valid HMAC signed webhook with fresh timestamp")
     void shouldProcessValidWebhook() {
         WebhookPayload payload = WebhookPayload.builder()
                 .provider(ProviderType.PROVIDER_A)
@@ -79,12 +79,13 @@ class WebhookProcessorServiceTest {
                 .build();
 
         String rawJson = JsonUtil.toJson(payload);
-        String signature = HmacSignatureUtil.calculateSignature(SECRET, rawJson);
+        String timestamp = String.valueOf(Instant.now().getEpochSecond());
+        String signature = HmacSignatureUtil.calculateSignature(SECRET, timestamp, rawJson);
 
         when(valueOperations.setIfAbsent(any(), any(), any(Duration.class))).thenReturn(true);
         when(webhookEventRepository.findByProviderAndProviderEventId("PROVIDER_A", "evt_valid_123")).thenReturn(Optional.empty());
 
-        WebhookProcessorService.WebhookResult result = webhookProcessorService.processWebhook("PROVIDER_A", rawJson, signature);
+        WebhookProcessorService.WebhookResult result = webhookProcessorService.processWebhook("PROVIDER_A", rawJson, signature, timestamp);
 
         assertThat(result.getStatus()).isEqualTo(WebhookEventStatus.PROCESSED);
         verify(webhookEventRepository, atLeastOnce()).save(any(WebhookEventEntity.class));
@@ -99,10 +100,79 @@ class WebhookProcessorServiceTest {
                 .build();
 
         String rawJson = JsonUtil.toJson(payload);
+        String timestamp = String.valueOf(Instant.now().getEpochSecond());
 
-        assertThatThrownBy(() -> webhookProcessorService.processWebhook("PROVIDER_A", rawJson, "invalid_signature_hex"))
+        assertThatThrownBy(() -> webhookProcessorService.processWebhook("PROVIDER_A", rawJson, "invalid_signature_hex", timestamp))
                 .isInstanceOf(InvalidWebhookSignatureException.class)
                 .hasMessageContaining("Invalid webhook signature");
+    }
+
+    @Test
+    @DisplayName("Should reject webhook with missing timestamp")
+    void shouldRejectMissingTimestamp() {
+        WebhookPayload payload = WebhookPayload.builder()
+                .provider(ProviderType.PROVIDER_A)
+                .providerEventId("evt_missing_ts")
+                .build();
+
+        String rawJson = JsonUtil.toJson(payload);
+
+        assertThatThrownBy(() -> webhookProcessorService.processWebhook("PROVIDER_A", rawJson, "sig", null))
+                .isInstanceOf(InvalidWebhookSignatureException.class)
+                .hasMessageContaining("Missing X-PayFlow-Timestamp header");
+
+        assertThatThrownBy(() -> webhookProcessorService.processWebhook("PROVIDER_A", rawJson, "sig", "   "))
+                .isInstanceOf(InvalidWebhookSignatureException.class)
+                .hasMessageContaining("Missing X-PayFlow-Timestamp header");
+    }
+
+    @Test
+    @DisplayName("Should reject webhook with malformed timestamp")
+    void shouldRejectMalformedTimestamp() {
+        WebhookPayload payload = WebhookPayload.builder()
+                .provider(ProviderType.PROVIDER_A)
+                .providerEventId("evt_malformed_ts")
+                .build();
+
+        String rawJson = JsonUtil.toJson(payload);
+
+        assertThatThrownBy(() -> webhookProcessorService.processWebhook("PROVIDER_A", rawJson, "sig", "not-a-timestamp"))
+                .isInstanceOf(InvalidWebhookSignatureException.class)
+                .hasMessageContaining("Malformed X-PayFlow-Timestamp header");
+    }
+
+    @Test
+    @DisplayName("Should reject webhook with stale timestamp older than 300s")
+    void shouldRejectStaleTimestamp() {
+        WebhookPayload payload = WebhookPayload.builder()
+                .provider(ProviderType.PROVIDER_A)
+                .providerEventId("evt_stale_ts")
+                .build();
+
+        String rawJson = JsonUtil.toJson(payload);
+        String staleTimestamp = String.valueOf(Instant.now().minusSeconds(305).getEpochSecond());
+        String signature = HmacSignatureUtil.calculateSignature(SECRET, staleTimestamp, rawJson);
+
+        assertThatThrownBy(() -> webhookProcessorService.processWebhook("PROVIDER_A", rawJson, signature, staleTimestamp))
+                .isInstanceOf(InvalidWebhookSignatureException.class)
+                .hasMessageContaining("Webhook timestamp is stale");
+    }
+
+    @Test
+    @DisplayName("Should reject webhook with future timestamp outside tolerance")
+    void shouldRejectFutureTimestamp() {
+        WebhookPayload payload = WebhookPayload.builder()
+                .provider(ProviderType.PROVIDER_A)
+                .providerEventId("evt_future_ts")
+                .build();
+
+        String rawJson = JsonUtil.toJson(payload);
+        String futureTimestamp = String.valueOf(Instant.now().plusSeconds(305).getEpochSecond());
+        String signature = HmacSignatureUtil.calculateSignature(SECRET, futureTimestamp, rawJson);
+
+        assertThatThrownBy(() -> webhookProcessorService.processWebhook("PROVIDER_A", rawJson, signature, futureTimestamp))
+                .isInstanceOf(InvalidWebhookSignatureException.class)
+                .hasMessageContaining("Webhook timestamp is in the future outside tolerance");
     }
 
     @Test
@@ -114,12 +184,13 @@ class WebhookProcessorServiceTest {
                 .build();
 
         String rawJson = JsonUtil.toJson(payload);
-        String signature = HmacSignatureUtil.calculateSignature(SECRET, rawJson);
+        String timestamp = String.valueOf(Instant.now().getEpochSecond());
+        String signature = HmacSignatureUtil.calculateSignature(SECRET, timestamp, rawJson);
 
         // Redis indicates key already exists
         when(valueOperations.setIfAbsent(any(), any(), any(Duration.class))).thenReturn(false);
 
-        WebhookProcessorService.WebhookResult result = webhookProcessorService.processWebhook("PROVIDER_A", rawJson, signature);
+        WebhookProcessorService.WebhookResult result = webhookProcessorService.processWebhook("PROVIDER_A", rawJson, signature, timestamp);
 
         assertThat(result.getStatus()).isEqualTo(WebhookEventStatus.DUPLICATE);
         assertThat(result.getMessage()).contains("Duplicate webhook event ignored");

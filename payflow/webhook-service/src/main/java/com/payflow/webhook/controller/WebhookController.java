@@ -34,10 +34,11 @@ public class WebhookController {
     public ResponseEntity<WebhookProcessorService.WebhookResult> handleWebhook(
             @PathVariable("provider") String provider,
             @RequestHeader(value = "X-PayFlow-Signature", required = false) String signature,
+            @RequestHeader(value = "X-PayFlow-Timestamp", required = false) String timestamp,
             @RequestBody String rawPayload
     ) {
         log.info("Received inbound webhook from provider [{}]", provider);
-        WebhookProcessorService.WebhookResult result = webhookProcessorService.processWebhook(provider, rawPayload, signature);
+        WebhookProcessorService.WebhookResult result = webhookProcessorService.processWebhook(provider, rawPayload, signature, timestamp);
         return ResponseEntity.ok(result);
     }
 

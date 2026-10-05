@@ -48,8 +48,22 @@ class HmacSignatureUtilTest {
     void shouldHandleNullsSafely() {
         assertThatThrownBy(() -> HmacSignatureUtil.calculateSignature(null, PAYLOAD))
                 .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> HmacSignatureUtil.calculateSignature(SECRET, null, PAYLOAD))
+                .isInstanceOf(IllegalArgumentException.class);
         assertThat(HmacSignatureUtil.verifySignature(null, PAYLOAD, "sig")).isFalse();
         assertThat(HmacSignatureUtil.verifySignature(SECRET, null, "sig")).isFalse();
         assertThat(HmacSignatureUtil.verifySignature(SECRET, PAYLOAD, null)).isFalse();
+        assertThat(HmacSignatureUtil.verifySignature(SECRET, "1712234000", null, "sig")).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should sign and verify with timestamp header")
+    void shouldSignAndVerifyWithTimestamp() {
+        String timestamp = "1712234000";
+        String signature = HmacSignatureUtil.calculateSignature(SECRET, timestamp, PAYLOAD);
+
+        assertThat(signature).isNotNull().isNotEmpty();
+        assertThat(HmacSignatureUtil.verifySignature(SECRET, timestamp, PAYLOAD, signature)).isTrue();
+        assertThat(HmacSignatureUtil.verifySignature(SECRET, "1712234001", PAYLOAD, signature)).isFalse();
     }
 }

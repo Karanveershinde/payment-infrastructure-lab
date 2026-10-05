@@ -32,12 +32,14 @@ export default function () {
     };
 
     const payload = JSON.stringify(payloadObj);
-    const signature = crypto.hmac('sha256', SECRET, payload, 'hex');
+    const timestampStr = Math.floor(Date.now() / 1000).toString();
+    const signature = crypto.hmac('sha256', SECRET, `${timestampStr}.${payload}`, 'hex');
 
     const params = {
         headers: {
             'Content-Type': 'application/json',
             'X-PayFlow-Signature': signature,
+            'X-PayFlow-Timestamp': timestampStr,
         },
     };
 

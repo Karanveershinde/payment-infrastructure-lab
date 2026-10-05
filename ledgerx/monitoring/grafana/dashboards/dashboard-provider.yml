@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'LedgerX Dashboards'
+    orgId: 1
+    folder: 'LedgerX'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

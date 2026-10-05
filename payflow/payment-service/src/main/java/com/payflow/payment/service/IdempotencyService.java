@@ -88,6 +88,7 @@ public class IdempotencyService {
                     }
 
                     log.info("Idempotent replay served for key [{}] merchant [{}]", idempotencyKey, merchantId);
+                    releaseLock(lockKey);
                     return IdempotencyRecord.builder()
                             .replay(true)
                             .responseBody(entity.getResponseBody())

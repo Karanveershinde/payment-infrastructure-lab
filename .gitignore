@@ -38,3 +38,7 @@ Thumbs.db
 # Environment and secrets
 .env
 *.local
+
+# Audit scripts
+payflow/audit/
+

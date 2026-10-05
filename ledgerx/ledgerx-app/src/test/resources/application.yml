@@ -1,0 +1,57 @@
+server:
+  port: 0
+
+spring:
+  application:
+    name: ledgerx-engine-test
+
+  datasource:
+    url: jdbc:h2:mem:ledgerxtest;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: false
+        show_sql: false
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    listener:
+      auto-startup: false
+
+ledgerx:
+  risk:
+    enabled: true
+    high-amount-threshold: 5000.00
+    velocity-burst-limit: 5
+    repeat-failure-limit: 3
+    multi-payment-method-limit: 2
+    merchant-hourly-volume-limit: 20000.00
+    refund-ratio-limit: 0.30
+    high-amount-score: 30
+    velocity-burst-score: 25
+    repeat-failure-score: 20
+    multi-payment-method-score: 20
+    high-risk-merchant-score: 15
+    unusual-refund-ratio-score: 20
+    medium-threshold: 31
+    high-threshold: 61
+    block-threshold: 81
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus

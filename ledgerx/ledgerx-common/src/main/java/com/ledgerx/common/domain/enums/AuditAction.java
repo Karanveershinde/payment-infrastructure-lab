@@ -1,0 +1,13 @@
+package com.ledgerx.common.domain.enums;
+
+public enum AuditAction {
+    TRANSACTION_INGESTED,
+    LEDGER_POSTED,
+    LEDGER_REVERSED,
+    RISK_EVALUATED,
+    RECONCILIATION_RUN,
+    DISCREPANCY_DETECTED,
+    DISCREPANCY_RESOLVED,
+    EVENT_REPLAYED,
+    DLQ_PROCESSED
+}

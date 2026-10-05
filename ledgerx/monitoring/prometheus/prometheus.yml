@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: 'ledgerx-app'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 3s
+    static_configs:
+      - targets: ['ledgerx-app:8090', 'host.docker.internal:8090']
+        labels:
+          application: 'ledgerx-app'

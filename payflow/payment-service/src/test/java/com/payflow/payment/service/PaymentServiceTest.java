@@ -143,7 +143,7 @@ class PaymentServiceTest {
                 .providerTransactionId("txn_123")
                 .build();
 
-        when(paymentRepository.findByIdAndMerchantId("pay_12345", MERCHANT_ID)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findByIdAndMerchantIdWithLock("pay_12345", MERCHANT_ID)).thenReturn(Optional.of(payment));
 
         ProviderModels.ProviderResponse captureResp = ProviderModels.ProviderResponse.builder()
                 .success(true)
@@ -177,7 +177,7 @@ class PaymentServiceTest {
                 .providerTransactionId("txn_123")
                 .build();
 
-        when(paymentRepository.findByIdAndMerchantId("pay_refund_123", MERCHANT_ID)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findByIdAndMerchantIdWithLock("pay_refund_123", MERCHANT_ID)).thenReturn(Optional.of(payment));
 
         ProviderModels.ProviderResponse refundResp = ProviderModels.ProviderResponse.builder()
                 .success(true)

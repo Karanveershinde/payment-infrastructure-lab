@@ -6,10 +6,13 @@ import com.payflow.common.domain.statemachine.PaymentStateMachine;
 import com.payflow.common.events.PaymentEvent;
 import com.payflow.common.events.PaymentEventPayload;
 import com.payflow.common.events.PaymentEventTopics;
+import com.payflow.common.util.JsonUtil;
+import com.payflow.payment.domain.entity.OutboxEventEntity;
 import com.payflow.payment.domain.entity.PaymentEntity;
 import com.payflow.payment.domain.entity.PaymentStateTransitionEntity;
 import com.payflow.payment.event.KafkaPaymentEventPublisher;
 import com.payflow.payment.observability.MetricsService;
+import com.payflow.payment.repository.OutboxEventRepository;
 import com.payflow.payment.repository.PaymentRepository;
 import com.payflow.payment.repository.PaymentStateTransitionRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +31,7 @@ public class StateMachineService {
 
     private final PaymentRepository paymentRepository;
     private final PaymentStateTransitionRepository transitionRepository;
+    private final OutboxEventRepository outboxEventRepository;
     private final KafkaPaymentEventPublisher eventPublisher;
     private final MetricsService metricsService;
 
@@ -112,7 +116,29 @@ public class StateMachineService {
                 payload
         );
 
-        eventPublisher.publishEvent(topic, event);
+        // 1. Atomically persist outbox record in current database transaction
+        OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
+                .id(UUID.randomUUID().toString())
+                .aggregateType("PAYMENT")
+                .aggregateId(payment.getId())
+                .topic(topic)
+                .eventKey(payment.getId())
+                .payload(JsonUtil.toJson(event))
+                .status("PENDING")
+                .retryCount(0)
+                .createdAt(Instant.now())
+                .build();
+        outboxEventRepository.save(outboxEvent);
+
+        // 2. Attempt fast direct publication (worker will retry if Kafka is temporarily offline)
+        try {
+            eventPublisher.publishEvent(topic, event);
+            outboxEvent.setStatus("PUBLISHED");
+            outboxEvent.setProcessedAt(Instant.now());
+            outboxEventRepository.save(outboxEvent);
+        } catch (Exception e) {
+            log.warn("Direct Kafka publication for event [{}] deferred to outbox worker: {}", outboxEvent.getId(), e.getMessage());
+        }
 
         // Record metrics
         if (toState == PaymentStatus.CAPTURED) {

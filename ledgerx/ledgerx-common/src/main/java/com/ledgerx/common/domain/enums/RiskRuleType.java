@@ -1,0 +1,10 @@
+package com.ledgerx.common.domain.enums;
+
+public enum RiskRuleType {
+    HIGH_AMOUNT_ANOMALY,
+    HIGH_VELOCITY_BURST,
+    REPEAT_FAILURE_SURGE,
+    MULTI_PAYMENT_METHOD_SWITCHING,
+    UNUSUAL_REFUND_RATIO,
+    HIGH_RISK_MERCHANT_SPIKE
+}

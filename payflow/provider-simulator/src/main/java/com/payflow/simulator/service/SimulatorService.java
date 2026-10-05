@@ -270,8 +270,9 @@ public class SimulatorService {
                         .timestamp(Instant.now())
                         .build();
 
+                String timestampStr = String.valueOf(Instant.now().getEpochSecond());
                 String jsonPayload = JsonUtil.toJson(payload);
-                String signature = HmacSignatureUtil.calculateSignature(properties.getWebhookSecret(), jsonPayload);
+                String signature = HmacSignatureUtil.calculateSignature(properties.getWebhookSecret(), timestampStr, jsonPayload);
 
                 String endpoint = properties.getWebhookServiceUrl() + "/" + provider.toLowerCase();
                 log.info("Simulator: Dispatching HMAC webhook to [{}] for payment [{}]", endpoint, paymentId);
@@ -279,6 +280,7 @@ public class SimulatorService {
                 restClient.post()
                         .uri(endpoint)
                         .header("X-PayFlow-Signature", signature)
+                        .header("X-PayFlow-Timestamp", timestampStr)
                         .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                         .body(jsonPayload)
                         .retrieve()

@@ -143,7 +143,7 @@ public class PaymentService {
 
     @Transactional
     public CaptureResponse capturePayment(String merchantId, String paymentId, CapturePaymentRequest request, String idempotencyKey, String correlationId) {
-        PaymentEntity payment = paymentRepository.findByIdAndMerchantId(paymentId, merchantId)
+        PaymentEntity payment = paymentRepository.findByIdAndMerchantIdWithLock(paymentId, merchantId)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment", paymentId));
 
         if (payment.getStatus() != PaymentStatus.AUTHORIZED) {
@@ -182,7 +182,7 @@ public class PaymentService {
 
     @Transactional
     public RefundResponse refundPayment(String merchantId, String paymentId, RefundPaymentRequest request, String idempotencyKey, String correlationId) {
-        PaymentEntity payment = paymentRepository.findByIdAndMerchantId(paymentId, merchantId)
+        PaymentEntity payment = paymentRepository.findByIdAndMerchantIdWithLock(paymentId, merchantId)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment", paymentId));
 
         if (payment.getStatus() != PaymentStatus.CAPTURED) {
@@ -210,7 +210,10 @@ public class PaymentService {
         if (providerResp.isSuccess()) {
             BigDecimal newRefundedAmount = payment.getRefundedAmount().add(request.getAmount());
             payment.setRefundedAmount(newRefundedAmount);
-            payment = stateMachineService.transitionState(payment, PaymentStatus.REFUNDED, StateTransitionTrigger.REFUND_SUCCESS, "Refund settled by provider", correlationId);
+            boolean isFullyRefunded = newRefundedAmount.compareTo(payment.getAmount()) >= 0;
+            PaymentStatus targetStatus = isFullyRefunded ? PaymentStatus.REFUNDED : PaymentStatus.CAPTURED;
+            String reason = isFullyRefunded ? "Refund fully settled by provider" : "Partial refund settled by provider";
+            payment = stateMachineService.transitionState(payment, targetStatus, StateTransitionTrigger.REFUND_SUCCESS, reason, correlationId);
 
             String refundId = "ref_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
             RefundEntity refund = RefundEntity.builder()
@@ -231,7 +234,7 @@ public class PaymentService {
                     .paymentId(payment.getId())
                     .amount(request.getAmount())
                     .currency(payment.getCurrency())
-                    .paymentStatus(payment.getStatus())
+                    .paymentStatus(refund.getStatus())
                     .providerRefundId(providerResp.getProviderTransactionId())
                     .reason(request.getReason())
                     .createdAt(refund.getCreatedAt())

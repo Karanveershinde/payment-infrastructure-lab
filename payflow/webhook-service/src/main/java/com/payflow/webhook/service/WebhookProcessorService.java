@@ -38,6 +38,8 @@ public class WebhookProcessorService {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final MeterRegistry meterRegistry;
 
+    private static final Duration FRESHNESS_TOLERANCE = Duration.ofSeconds(300);
+
     @Value("${webhook.secret:whsec_test_secret_key_1234567890}")
     private String webhookSecret;
 
@@ -49,12 +51,24 @@ public class WebhookProcessorService {
         private String message;
     }
 
-    @Transactional
     public WebhookResult processWebhook(String provider, String rawPayload, String signature) {
-        String normalizedProvider = provider.toUpperCase();
+        return processWebhook(provider, rawPayload, signature, null);
+    }
 
-        // 1. Verify HMAC Signature
-        if (signature == null || !HmacSignatureUtil.verifySignature(webhookSecret, rawPayload, signature)) {
+    @Transactional
+    public WebhookResult processWebhook(String provider, String rawPayload, String signature, String timestampHeader) {
+        String normalizedProvider = provider != null ? provider.toUpperCase() : "UNKNOWN";
+
+        // 1. Validate Timestamp Presence and Freshness
+        if (timestampHeader == null || timestampHeader.isBlank()) {
+            log.warn("Missing webhook timestamp header from provider [{}]", normalizedProvider);
+            throw new InvalidWebhookSignatureException("Missing X-PayFlow-Timestamp header");
+        }
+
+        Instant eventTimestamp = parseAndValidateTimestamp(timestampHeader.trim());
+
+        // 2. Verify HMAC Signature over timestamp + "." + rawPayload
+        if (signature == null || !HmacSignatureUtil.verifySignature(webhookSecret, timestampHeader.trim(), rawPayload, signature)) {
             log.warn("Invalid HMAC webhook signature from provider [{}]", normalizedProvider);
             throw new InvalidWebhookSignatureException("Invalid webhook signature for provider: " + normalizedProvider);
         }
@@ -168,5 +182,34 @@ public class WebhookProcessorService {
         try {
             meterRegistry.counter("webhook_duplicate_total", "provider", provider).increment();
         } catch (Exception ignored) {}
+    }
+
+    private Instant parseAndValidateTimestamp(String timestampHeader) {
+        Instant parsed;
+        try {
+            long value = Long.parseLong(timestampHeader);
+            if (value > 100_000_000_000L) {
+                parsed = Instant.ofEpochMilli(value);
+            } else {
+                parsed = Instant.ofEpochSecond(value);
+            }
+        } catch (NumberFormatException nfe) {
+            try {
+                parsed = Instant.parse(timestampHeader);
+            } catch (Exception e) {
+                throw new InvalidWebhookSignatureException("Malformed X-PayFlow-Timestamp header: " + timestampHeader);
+            }
+        }
+
+        Instant now = Instant.now();
+        Duration age = Duration.between(parsed, now);
+        if (age.abs().compareTo(FRESHNESS_TOLERANCE) > 0) {
+            if (parsed.isAfter(now)) {
+                throw new InvalidWebhookSignatureException("Webhook timestamp is in the future outside tolerance: " + timestampHeader);
+            } else {
+                throw new InvalidWebhookSignatureException("Webhook timestamp is stale: " + timestampHeader);
+            }
+        }
+        return parsed;
     }
 }

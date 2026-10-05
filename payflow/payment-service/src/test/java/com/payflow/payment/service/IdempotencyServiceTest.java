@@ -89,6 +89,7 @@ class IdempotencyServiceTest {
         assertThat(record.isReplay()).isTrue();
         assertThat(record.getResponseBody()).isEqualTo(entity.getResponseBody());
         assertThat(record.getResponseStatusCode()).isEqualTo(201);
+        verify(redisTemplate).delete(LOCK_KEY);
     }
 
     @Test

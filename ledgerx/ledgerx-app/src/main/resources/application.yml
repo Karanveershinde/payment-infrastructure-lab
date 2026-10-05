@@ -1,0 +1,97 @@
+server:
+  port: ${SERVER_PORT:8090}
+
+spring:
+  application:
+    name: ledgerx-engine
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/ledgerx_db}
+    username: ${SPRING_DATASOURCE_USERNAME:ledgerx_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:ledgerx_pass}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        show_sql: false
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6380}
+      timeout: 2000ms
+
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 3
+    consumer:
+      group-id: ledgerx-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+    listener:
+      ack-mode: record
+
+ledgerx:
+  risk:
+    enabled: true
+    high-amount-threshold: 5000.00
+    velocity-burst-limit: 5
+    repeat-failure-limit: 3
+    multi-payment-method-limit: 2
+    merchant-hourly-volume-limit: 20000.00
+    refund-ratio-limit: 0.30
+    high-amount-score: 30
+    velocity-burst-score: 25
+    repeat-failure-score: 20
+    multi-payment-method-score: 20
+    high-risk-merchant-score: 15
+    unusual-refund-ratio-score: 20
+    medium-threshold: 31
+    high-threshold: 61
+    block-threshold: 81
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ledgerx
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
