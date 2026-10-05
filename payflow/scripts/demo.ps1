@@ -3,6 +3,7 @@ $ErrorActionPreference = "Stop"
 $BASE_URL = "http://localhost:8080"
 $SIMULATOR_URL = "http://localhost:8081"
 $WEBHOOK_URL = "http://localhost:8082"
+$DEMO_IDEMPOTENCY_KEY = "idem_demo_$((Get-Date).ToString("yyyyMMddHHmmss"))"
 $API_KEY = "pk_test_acme_123456"
 
 Write-Host "================================================================" -ForegroundColor Cyan
@@ -13,7 +14,7 @@ Write-Host "`n[Step 1] Merchant checks profile & rate limit quota..." -Foregroun
 $merchant = Invoke-RestMethod -Uri "$BASE_URL/api/v1/merchants/me" -Method Get -Headers @{ "X-API-Key" = $API_KEY }
 $merchant | ConvertTo-Json
 
-Write-Host "`n[Step 2] Creating standard payment order (Idempotency Key: idem_demo_001)..." -ForegroundColor Yellow
+Write-Host "`n[Step 2] Creating standard payment order (Idempotency Key: $DEMO_IDEMPOTENCY_KEY)..." -ForegroundColor Yellow
 $body = @{
     amount = 250.00
     currency = "USD"
@@ -25,15 +26,15 @@ $body = @{
 
 $payment = Invoke-RestMethod -Uri "$BASE_URL/api/v1/payments" -Method Post -Body $body -ContentType "application/json" -Headers @{
     "X-API-Key" = $API_KEY
-    "Idempotency-Key" = "idem_demo_001"
+    "Idempotency-Key" = "$DEMO_IDEMPOTENCY_KEY"
 }
 $payment | ConvertTo-Json
 $paymentId = $payment.paymentId
 
-Write-Host "`n[Step 3] Demonstrating IDEMPOTENCY: Re-sending exact same request with idem_demo_001..." -ForegroundColor Yellow
+Write-Host "`n[Step 3] Demonstrating IDEMPOTENCY: Re-sending exact same request with $DEMO_IDEMPOTENCY_KEY..." -ForegroundColor Yellow
 $replay = Invoke-RestMethod -Uri "$BASE_URL/api/v1/payments" -Method Post -Body $body -ContentType "application/json" -Headers @{
     "X-API-Key" = $API_KEY
-    "Idempotency-Key" = "idem_demo_001"
+    "Idempotency-Key" = "$DEMO_IDEMPOTENCY_KEY"
 }
 $replay | ConvertTo-Json
 
@@ -41,7 +42,7 @@ Write-Host "`n[Step 4] Querying immutable state transition audit history for $pa
 $events = Invoke-RestMethod -Uri "$BASE_URL/api/v1/payments/$paymentId/events" -Method Get -Headers @{ "X-API-Key" = $API_KEY }
 $events | ConvertTo-Json
 
-Write-Host "`n[Step 5] Initiating Partial Refund of $50.00 on payment $paymentId..." -ForegroundColor Yellow
+Write-Host "`n[Step 5] Initiating Partial Refund of `$50 on payment $paymentId..." -ForegroundColor Yellow
 $refundBody = @{
     amount = 50.00
     reason = "Customer returned partial order items"
@@ -49,7 +50,7 @@ $refundBody = @{
 
 $refund = Invoke-RestMethod -Uri "$BASE_URL/api/v1/payments/$paymentId/refund" -Method Post -Body $refundBody -ContentType "application/json" -Headers @{
     "X-API-Key" = $API_KEY
-    "Idempotency-Key" = "ref_demo_001"
+    "Idempotency-Key" = "ref_demo_$((Get-Date).ToString("yyyyMMddHHmmss"))"
 }
 $refund | ConvertTo-Json
 
@@ -72,7 +73,7 @@ $failoverPaymentBody = @{
 
 $failoverPayment = Invoke-RestMethod -Uri "$BASE_URL/api/v1/payments" -Method Post -Body $failoverPaymentBody -ContentType "application/json" -Headers @{
     "X-API-Key" = $API_KEY
-    "Idempotency-Key" = "idem_failover_001"
+    "Idempotency-Key" = "idem_failover_$((Get-Date).ToString("yyyyMMddHHmmss"))"
 }
 $failoverPayment | ConvertTo-Json
 Write-Host "Payment routed to fallback provider: $($failoverPayment.provider)" -ForegroundColor Green
